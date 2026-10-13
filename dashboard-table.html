@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sales Dashboard</title>
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --text:#1c2330; --muted:#667085; --line:#e4e7ec; --accent:#2557d6; }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:16px; background:var(--bg); color:var(--text);
+         font:15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width:900px; margin:0 auto; }
+  h1 { font-size:1.5rem; margin:0 0 16px; }
+  .summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-bottom:16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:12px 16px; }
+  .card span { display:block; color:var(--muted); font-size:.8rem; }
+  .card strong { font-size:1.25rem; font-variant-numeric:tabular-nums; }
+  input { width:100%; padding:10px 12px; margin-bottom:12px; border:1px solid var(--line);
+          border-radius:8px; font:inherit; background:var(--card); color:var(--text); }
+  .wrap { overflow-x:auto; background:var(--card); border:1px solid var(--line); border-radius:8px; }
+  table { width:100%; border-collapse:collapse; white-space:nowrap; }
+  th, td { padding:10px 14px; text-align:left; border-bottom:1px solid var(--line); }
+  th.num, td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  th { cursor:pointer; user-select:none; color:var(--muted); font-size:.85rem; background:#fafbfc; }
+  th:hover, th:focus { color:var(--accent); outline:none; }
+  th[aria-sort]::after { content:" \25B2"; font-size:.7em; }
+  th[aria-sort=descending]::after { content:" \25BC"; }
+  tbody tr:last-child td { border-bottom:0; }
+  .empty { padding:16px; color:var(--muted); text-align:center; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Sales Dashboard</h1>
+  <section class="summary" id="summary"></section>
+  <input id="q" type="search" placeholder="ค้นหาภูมิภาค / สินค้า (region / product)" aria-label="ค้นหา">
+  <div class="wrap">
+    <table>
+      <thead><tr id="head"></tr></thead>
+      <tbody id="body"></tbody>
+    </table>
+    <div class="empty" id="empty" hidden>ไม่พบข้อมูล</div>
+  </div>
+</main>
+<script>
+const data = [
+  { month: "2026-01", region: "North", product: "Widget", units: 120, revenue: 24000 },
+  { month: "2026-01", region: "South", product: "Gadget", units: 80,  revenue: 20000 },
+  { month: "2026-02", region: "North", product: "Widget", units: 150, revenue: 30000 },
+  { month: "2026-02", region: "South", product: "Gadget", units: 95,  revenue: 23750 },
+  { month: "2026-03", region: "North", product: "Gadget", units: 110, revenue: 27500 },
+  { month: "2026-03", region: "South", product: "Widget", units: 130, revenue: 26000 },
+  { month: "2026-04", region: "North", product: "Widget", units: 170, revenue: 34000 },
+  { month: "2026-04", region: "South", product: "Gadget", units: 105, revenue: 26250 },
+  { month: "2026-05", region: "North", product: "Gadget", units: 125, revenue: 31250 },
+  { month: "2026-05", region: "South", product: "Widget", units: 140, revenue: 28000 },
+  { month: "2026-06", region: "North", product: "Widget", units: 180, revenue: 36000 },
+  { month: "2026-06", region: "South", product: "Gadget", units: 115, revenue: 28750 }
+];
+
+const cols = [
+  { key: "month",   label: "เดือน" },
+  { key: "region",  label: "ภูมิภาค" },
+  { key: "product", label: "สินค้า" },
+  { key: "units",   label: "หน่วย",  num: true },
+  { key: "revenue", label: "รายได้", num: true }
+];
+const fmt = n => n.toLocaleString("en-US");
+const $ = id => document.getElementById(id);
+let sortKey = "month", sortDir = 1;
+
+function render() {
+  const q = $("q").value.trim().toLowerCase();
+  const rows = data
+    .filter(r => (r.region + " " + r.product).toLowerCase().includes(q))
+    .sort((a, b) => (a[sortKey] > b[sortKey] ? 1 : a[sortKey] < b[sortKey] ? -1 : 0) * sortDir);
+
+  const revenue = rows.reduce((s, r) => s + r.revenue, 0);
+  const units = rows.reduce((s, r) => s + r.units, 0);
+  $("summary").innerHTML =
+    [["รายได้รวม (Total revenue)", fmt(revenue)], ["จำนวนหน่วยรวม (Total units)", fmt(units)], ["จำนวนออเดอร์ (Orders)", rows.length]]
+      .map(([l, v]) => `<div class="card"><span>${l}</span><strong>${v}</strong></div>`).join("");
+
+  $("head").innerHTML = cols.map(c =>
+    `<th data-key="${c.key}" tabindex="0" class="${c.num ? "num" : ""}"` +
+    (c.key === sortKey ? ` aria-sort="${sortDir > 0 ? "ascending" : "descending"}"` : "") +
+    `>${c.label}</th>`).join("");
+
+  $("body").innerHTML = rows.map(r =>
+    "<tr>" + cols.map(c => `<td class="${c.num ? "num" : ""}">${c.num ? fmt(r[c.key]) : r[c.key]}</td>`).join("") + "</tr>").join("");
+  $("empty").hidden = rows.length > 0;
+}
+
+function sortBy(th) {
+  if (!th) return;
+  const k = th.dataset.key;
+  sortDir = k === sortKey ? -sortDir : 1;
+  sortKey = k;
+  render();
+}
+$("head").addEventListener("click", e => sortBy(e.target.closest("th")));
+$("head").addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); sortBy(e.target.closest("th")); } });
+$("q").addEventListener("input", render);
+render();
+</script>
+</body>
+</html>
