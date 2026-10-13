@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sales Dashboard</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #fff; --text: #1d2330; --muted: #667085; --border: #e3e6eb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14171d; --card: #1c2029; --text: #e8eaf0; --muted: #9aa3b2; --border: #2c3240; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 16px; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 1100px; margin: 0 auto; }
+  h1 { margin: 0 0 16px; font-size: 1.6rem; }
+  .kpis, .charts { display: grid; gap: 16px; }
+  .kpis { grid-template-columns: repeat(3, 1fr); margin-bottom: 16px; }
+  .charts { grid-template-columns: repeat(2, 1fr); }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; min-width: 0; }
+  .kpi .label { color: var(--muted); font-size: .8rem; }
+  .kpi .value { font-size: 1.6rem; font-weight: 600; margin-top: 4px; }
+  .card h2 { margin: 0 0 12px; font-size: 1rem; }
+  .wide { grid-column: 1 / -1; }
+  .box { position: relative; height: 300px; }
+  @media (max-width: 700px) {
+    .kpis, .charts { grid-template-columns: 1fr; }
+    .wide { grid-column: auto; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Sales Dashboard</h1>
+
+  <section class="kpis">
+    <div class="card kpi"><div class="label">Total revenue</div><div class="value" id="kRev"></div></div>
+    <div class="card kpi"><div class="label">Total units</div><div class="value" id="kUnits"></div></div>
+    <div class="card kpi"><div class="label">Orders</div><div class="value" id="kOrders"></div></div>
+  </section>
+
+  <section class="charts">
+    <div class="card wide"><h2>Revenue by month and region</h2><div class="box"><canvas id="cLine"></canvas></div></div>
+    <div class="card"><h2>Units by product</h2><div class="box"><canvas id="cBar"></canvas></div></div>
+    <div class="card"><h2>Revenue share by region</h2><div class="box"><canvas id="cPie"></canvas></div></div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+const data = [
+  { month: "2026-01", region: "North", product: "Widget", units: 120, revenue: 24000 },
+  { month: "2026-01", region: "South", product: "Gadget", units: 80,  revenue: 20000 },
+  { month: "2026-02", region: "North", product: "Widget", units: 150, revenue: 30000 },
+  { month: "2026-02", region: "South", product: "Gadget", units: 95,  revenue: 23750 },
+  { month: "2026-03", region: "North", product: "Gadget", units: 110, revenue: 27500 },
+  { month: "2026-03", region: "South", product: "Widget", units: 130, revenue: 26000 },
+  { month: "2026-04", region: "North", product: "Widget", units: 170, revenue: 34000 },
+  { month: "2026-04", region: "South", product: "Gadget", units: 105, revenue: 26250 },
+  { month: "2026-05", region: "North", product: "Gadget", units: 125, revenue: 31250 },
+  { month: "2026-05", region: "South", product: "Widget", units: 140, revenue: 28000 },
+  { month: "2026-06", region: "North", product: "Widget", units: 180, revenue: 36000 },
+  { month: "2026-06", region: "South", product: "Gadget", units: 115, revenue: 28750 },
+];
+
+const sum = (rows, k) => rows.reduce((a, r) => a + r[k], 0);
+const uniq = k => [...new Set(data.map(r => r[k]))];
+const by = (k, v) => data.filter(r => r[k] === v);
+
+const months = uniq("month");
+const regions = uniq("region");
+const products = uniq("product");
+const regionColor = { North: "#2f7de1", South: "#e8833a" };
+const fmt = n => n.toLocaleString("en-US");
+
+document.getElementById("kRev").textContent = "$" + fmt(sum(data, "revenue"));
+document.getElementById("kUnits").textContent = fmt(sum(data, "units"));
+document.getElementById("kOrders").textContent = fmt(data.length);
+
+const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+Chart.defaults.color = dark ? "#9aa3b2" : "#667085";
+Chart.defaults.borderColor = dark ? "#2c3240" : "#e3e6eb";
+Chart.defaults.maintainAspectRatio = false;
+
+new Chart("cLine", {
+  type: "line",
+  data: {
+    labels: months,
+    datasets: regions.map(r => ({
+      label: r,
+      data: months.map(m => sum(data.filter(d => d.region === r && d.month === m), "revenue")),
+      borderColor: regionColor[r], backgroundColor: regionColor[r], tension: 0.3,
+    })),
+  },
+  options: { scales: { y: { beginAtZero: true, ticks: { callback: v => "$" + fmt(v) } } } },
+});
+
+new Chart("cBar", {
+  type: "bar",
+  data: {
+    labels: products,
+    datasets: [{ label: "Units", data: products.map(p => sum(by("product", p), "units")), backgroundColor: "#4aa96c" }],
+  },
+  options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } },
+});
+
+new Chart("cPie", {
+  type: "doughnut",
+  data: {
+    labels: regions,
+    datasets: [{ data: regions.map(r => sum(by("region", r), "revenue")), backgroundColor: regions.map(r => regionColor[r]), borderWidth: 0 }],
+  },
+  options: { plugins: { tooltip: { callbacks: { label: c => `${c.label}: $${fmt(c.parsed)}` } } } },
+});
+</script>
+</body>
+</html>
