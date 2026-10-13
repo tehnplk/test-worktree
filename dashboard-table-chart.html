@@ -6,32 +6,48 @@
 <title>Sales Dashboard</title>
 <style>
   :root {
-    --bg: #f6f7f9; --card: #fff; --text: #1d2330; --muted: #6b7385; --line: #e3e6ec;
-    --north: #2563eb; --south: #ea580c; --bar: #0d9488;
+    --bg: #F4F6F8;
+    --surface: #FFFFFF;
+    --text: #1F2933;
+    --muted: #6B7280;
+    --border: #E1E5EA;
+    --primary: #2563EB;
+    --c1: #2563EB; --c2: #F59E0B; --c3: #10B981; --c4: #EF4444;
+    --radius: 4px;
+    --font: system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", sans-serif;
+    --zebra: #F8F9FB;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #12151c; --card: #1b1f29; --text: #e8ebf2; --muted: #98a1b3; --line: #2b3140;
-      --north: #60a5fa; --south: #fb923c; --bar: #2dd4bf;
+      --bg: #12161B;
+      --surface: #1B2128;
+      --text: #E8ECF0;
+      --muted: #9AA5B1;
+      --border: #2D353F;
+      --zebra: #20272F;
     }
   }
   * { box-sizing: border-box; }
   body { margin: 0; padding: 24px 16px; background: var(--bg); color: var(--text);
-         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+         font: 15px/1.5 var(--font); }
   main { max-width: 1100px; margin: 0 auto; }
-  h1 { margin: 0 0 16px; font-size: 1.6rem; }
-  h2 { margin: 0 0 12px; font-size: 1rem; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+  h1 { margin: 0 0 16px; font-size: 1.6rem; font-weight: 800; }
+  h2 { margin: 0 0 12px; font-size: .8rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; min-width: 0; }
   .grid { display: grid; gap: 16px; margin-bottom: 16px; }
   .totals { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  .totals .card { border-left: 4px solid var(--c1); }
+  .totals .card:nth-child(2) { border-left-color: var(--c2); }
+  .totals .card:nth-child(3) { border-left-color: var(--c3); }
   .charts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .label { color: var(--muted); font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
-  .value { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .label { color: var(--muted); font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+  .value { font-size: 2rem; line-height: 1.2; font-weight: 800; font-variant-numeric: tabular-nums; }
   .chart-box { position: relative; height: 280px; }
   .table-wrap { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-  th, td { padding: 8px 12px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
-  th { color: var(--muted); font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+  th, td { padding: 8px 12px; text-align: left; white-space: nowrap; }
+  th { background: var(--primary); color: #fff; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+  tbody tr:nth-child(even) { background: var(--zebra); }
   th.num, td.num { text-align: right; }
   @media (max-width: 720px) { .charts { grid-template-columns: minmax(0, 1fr); } }
 </style>
@@ -105,10 +121,13 @@ document.getElementById("rows").innerHTML = data.map(r =>
 const months = [...new Set(data.map(r => r.month))];
 const regions = [...new Set(data.map(r => r.region))];
 const products = [...new Set(data.map(r => r.product))];
-const regionColor = { North: css("--north"), South: css("--south") };
-const text = css("--muted"), grid = css("--line");
-Chart.defaults.color = text;
-Chart.defaults.borderColor = grid;
+const regionColor = { North: css("--c1"), South: css("--c2") };
+Chart.defaults.color = css("--muted");
+Chart.defaults.borderColor = css("--border");
+Chart.defaults.font.family = css("--font");
+const legend = { labels: { usePointStyle: true, pointStyle: "rect", boxWidth: 10, boxHeight: 10 } };
+const tooltip = { backgroundColor: css("--text"), titleColor: css("--surface"), bodyColor: css("--surface"), cornerRadius: 4 };
+const noGrid = { display: false };
 const opts = { responsive: true, maintainAspectRatio: false };
 
 new Chart("line", {
@@ -118,21 +137,23 @@ new Chart("line", {
     datasets: regions.map(reg => ({
       label: reg,
       data: months.map(m => sum(data.filter(r => r.month === m && r.region === reg), "revenue")),
-      borderColor: regionColor[reg], backgroundColor: regionColor[reg], tension: 0.25,
+      borderColor: regionColor[reg], backgroundColor: regionColor[reg], tension: 0,
+      borderWidth: 2, pointRadius: 3, fill: false,
     })),
   },
-  options: { ...opts, scales: { y: { beginAtZero: true, ticks: { callback: usd } } },
-             plugins: { tooltip: { callbacks: { label: c => `${c.dataset.label}: ${usd(c.parsed.y)}` } } } },
+  options: { ...opts, scales: { x: { grid: noGrid }, y: { beginAtZero: true, ticks: { callback: usd }, border: { display: false } } },
+             plugins: { legend, tooltip: { ...tooltip, callbacks: { label: c => `${c.dataset.label}: ${usd(c.parsed.y)}` } } } },
 });
 
 new Chart("bar", {
   type: "bar",
   data: {
     labels: products,
-    datasets: [{ label: "Units", backgroundColor: css("--bar"),
+    datasets: [{ label: "Units", backgroundColor: css("--c3"), borderWidth: 0, borderRadius: 0, maxBarThickness: 64,
                  data: products.map(p => sum(data.filter(r => r.product === p), "units")) }],
   },
-  options: { ...opts, scales: { y: { beginAtZero: true } }, plugins: { legend: { display: false } } },
+  options: { ...opts, scales: { x: { grid: noGrid }, y: { beginAtZero: true, border: { display: false } } },
+             plugins: { legend: { display: false }, tooltip } },
 });
 </script>
 </body>
