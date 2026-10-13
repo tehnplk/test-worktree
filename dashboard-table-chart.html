@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sales Dashboard</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --text: #1d2330; --muted: #6b7385; --line: #e3e6ec;
+    --north: #2563eb; --south: #ea580c; --bar: #0d9488;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151c; --card: #1b1f29; --text: #e8ebf2; --muted: #98a1b3; --line: #2b3140;
+      --north: #60a5fa; --south: #fb923c; --bar: #2dd4bf;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px 16px; background: var(--bg); color: var(--text);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; }
+  h1 { margin: 0 0 16px; font-size: 1.6rem; }
+  h2 { margin: 0 0 12px; font-size: 1rem; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+  .grid { display: grid; gap: 16px; margin-bottom: 16px; }
+  .totals { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  .charts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .label { color: var(--muted); font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+  .value { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .chart-box { position: relative; height: 280px; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { padding: 8px 12px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+  th { color: var(--muted); font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+  th.num, td.num { text-align: right; }
+  @media (max-width: 720px) { .charts { grid-template-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Sales Dashboard</h1>
+
+  <section class="grid totals" aria-label="Totals">
+    <div class="card"><div class="label">Total revenue</div><div class="value" id="t-rev"></div></div>
+    <div class="card"><div class="label">Total units</div><div class="value" id="t-units"></div></div>
+    <div class="card"><div class="label">Orders</div><div class="value" id="t-orders"></div></div>
+  </section>
+
+  <section class="grid charts" aria-label="Charts">
+    <div class="card">
+      <h2>Revenue by month and region</h2>
+      <div class="chart-box"><canvas id="line" role="img" aria-label="Line chart of revenue by month, split by region"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Units by product</h2>
+      <div class="chart-box"><canvas id="bar" role="img" aria-label="Bar chart of units by product"></canvas></div>
+    </div>
+  </section>
+
+  <section class="card" aria-label="Raw data">
+    <h2>Raw data</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Month</th><th>Region</th><th>Product</th><th class="num">Units</th><th class="num">Revenue</th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+const data = [
+  { month: "2026-01", region: "North", product: "Widget", units: 120, revenue: 24000 },
+  { month: "2026-01", region: "South", product: "Gadget", units: 80,  revenue: 20000 },
+  { month: "2026-02", region: "North", product: "Widget", units: 150, revenue: 30000 },
+  { month: "2026-02", region: "South", product: "Gadget", units: 95,  revenue: 23750 },
+  { month: "2026-03", region: "North", product: "Gadget", units: 110, revenue: 27500 },
+  { month: "2026-03", region: "South", product: "Widget", units: 130, revenue: 26000 },
+  { month: "2026-04", region: "North", product: "Widget", units: 170, revenue: 34000 },
+  { month: "2026-04", region: "South", product: "Gadget", units: 105, revenue: 26250 },
+  { month: "2026-05", region: "North", product: "Gadget", units: 125, revenue: 31250 },
+  { month: "2026-05", region: "South", product: "Widget", units: 140, revenue: 28000 },
+  { month: "2026-06", region: "North", product: "Widget", units: 180, revenue: 36000 },
+  { month: "2026-06", region: "South", product: "Gadget", units: 115, revenue: 28750 },
+];
+
+const sum = (rows, k) => rows.reduce((a, r) => a + r[k], 0);
+const usd = n => "$" + n.toLocaleString("en-US");
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+// Totals
+document.getElementById("t-rev").textContent = usd(sum(data, "revenue"));
+document.getElementById("t-units").textContent = sum(data, "units").toLocaleString("en-US");
+document.getElementById("t-orders").textContent = data.length;
+
+// Table
+document.getElementById("rows").innerHTML = data.map(r =>
+  `<tr><td>${r.month}</td><td>${r.region}</td><td>${r.product}</td>` +
+  `<td class="num">${r.units}</td><td class="num">${usd(r.revenue)}</td></tr>`).join("");
+
+// Charts
+const months = [...new Set(data.map(r => r.month))];
+const regions = [...new Set(data.map(r => r.region))];
+const products = [...new Set(data.map(r => r.product))];
+const regionColor = { North: css("--north"), South: css("--south") };
+const text = css("--muted"), grid = css("--line");
+Chart.defaults.color = text;
+Chart.defaults.borderColor = grid;
+const opts = { responsive: true, maintainAspectRatio: false };
+
+new Chart("line", {
+  type: "line",
+  data: {
+    labels: months,
+    datasets: regions.map(reg => ({
+      label: reg,
+      data: months.map(m => sum(data.filter(r => r.month === m && r.region === reg), "revenue")),
+      borderColor: regionColor[reg], backgroundColor: regionColor[reg], tension: 0.25,
+    })),
+  },
+  options: { ...opts, scales: { y: { beginAtZero: true, ticks: { callback: usd } } },
+             plugins: { tooltip: { callbacks: { label: c => `${c.dataset.label}: ${usd(c.parsed.y)}` } } } },
+});
+
+new Chart("bar", {
+  type: "bar",
+  data: {
+    labels: products,
+    datasets: [{ label: "Units", backgroundColor: css("--bar"),
+                 data: products.map(p => sum(data.filter(r => r.product === p), "units")) }],
+  },
+  options: { ...opts, scales: { y: { beginAtZero: true } }, plugins: { legend: { display: false } } },
+});
+</script>
+</body>
+</html>
